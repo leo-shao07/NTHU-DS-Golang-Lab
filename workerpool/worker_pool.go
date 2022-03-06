@@ -47,14 +47,14 @@ func (wp *workerPool) Start(ctx context.Context) {
 
 	// _, cancel2 := context.WithCancel(ctx)
 	// defer cancel2()
-
+	//defer close(wp.results)
 	for i := 1; i <= wp.numWorkers; i++ {
 		wp.wg.Add(1)
-		go func() {
-			defer wp.wg.Done()
-			wp.run(ctx)
-		}()
-		//go wp.run(ctx)
+		// go func() {
+		// 	defer wp.wg.Done()
+		// 	wp.run(ctx)
+		// }()
+		go wp.run(ctx)
 	}
 
 	wp.wg.Wait()
@@ -75,30 +75,15 @@ func (wp *workerPool) run(ctx context.Context) {
 	//
 	// Keeps fetching task from the task channel, do the task,
 	// then makes sure to exit if context is done.
-	//defer wp.wg.Done()
-	// defer ctx.Done()
+	defer wp.wg.Done()
 
-	for {
+	for task := range wp.Tasks() {
+		wp.Results() <- task.Func(task.Args...)
 		select {
 		case <-ctx.Done():
 			return
-		case receive, ok := <-wp.Tasks():
-			if ok {
-				result := receive.Func(receive.Args...)
-				wp.Results() <- result
-			} else {
-				return
-			}
+		default:
 		}
 	}
-	//defer ctx.Done()
-	// defer wp.wg.Done()
-	// for task := range wp.Tasks() {
-	// 	select {
-	// 	case <-ctx.Done():
-	// 		return
-	// 	default:
-	// 		wp.Results() <- task.Func(task.Args...)
-	// 	}
-	// }
+
 }
